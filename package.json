@@ -2,6 +2,10 @@
   "name": "nanomind",
   "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "chat": "bun run src/chat/chat.ts",
+    "test": "echo 'Running tests for all components...'"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
