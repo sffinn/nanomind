@@ -1,77 +1,27 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import axios, { AxiosInstance } from "axios";
+import axios from "axios";
 
 // =============================================================================
 // Configuration and Type Definitions
 // =============================================================================
 
-/** Represents a function definition sent to the LLM. */
-type ToolFunctionDefinition = {
-  name: string;
-  description: string;
-  parameters: any; // Using 'any' for schema simplicity
+type ToolFunctionParameters = {
+  type: string;
+  properties: any;
+  required: string[];
 };
 
 /** Represents the structure of an LLM tool call request body. */
-type FunctionCall = {
-  function: {
-    name: string;
-    description: string;
-    parameters: any;
-  };
-};
-
-/*
-{
-    type     => 'function',
-    function => {
-        name        => 'read_memory',
-        description => 'Read the entire contents of the memory.md file. '
-                     . 'Use this to recall facts, previous decisions, '
-                     . 'user preferences, and conversation context.',
-        parameters  => {
-            type       => 'object',
-            properties => {},
-            required   => [],
-        },
-    },
-},
-{
-    type     => 'function',
-    function => {
-        name        => 'write_memory',
-        description => 'Overwrite memory.md with new content. '
-                     . 'Use this to completely replace the memory store, '
-                     . 'e.g. after a major reorganisation or summarisation.',
-        parameters  => {
-            type       => 'object',
-            properties => {
-                content => {
-                    type        => 'string',
-                    description => 'The full Markdown content to write to memory.md.',
-                },
-            },
-            required => ['content'],
-        },
-    },
-},
-
-*/
-
-type ToolParameters = {
-  type: string;
-};
-
-type ToolFunction = {
+type ToolFunctionDefinition = {
   name: string;
   description: string;
-  parameters: ToolParameters;
+  parameters: ToolFunctionParameters;
 };
 
-type ToolCall = {
+type ToolDefinition = {
   type: string;
-  function: ToolFunction;
+  function: ToolFunctionDefinition;
 };
 
 /** Represents a message in the conversation history. */
@@ -147,65 +97,53 @@ const argsPreview = (args: any): string => {
 // Tool Definitions (API Schema)
 // =============================================================================
 
-const TOOLS: { name: string; functionDef: FunctionCallDefinition }[] = [
+const TOOLS: ToolDefinition[] = [
   {
-    name: "read_memory",
-    functionDef: {
-      type: "function",
-      function: {
-        name: "read_memory",
-        description:
-          "Read the entire contents of memory.md. Use this to recall facts, previous decisions, user preferences, and conversation context.",
-        parameters: { type: "object", properties: {}, required: [] },
-      },
+    type: "function",
+    function: {
+      name: "read_memory",
+      description:
+        "Read the entire contents of memory.md. Use this to recall facts, previous decisions, user preferences, and conversation context.",
+      parameters: { type: "object", properties: {}, required: [] },
     },
   },
   {
-    name: "write_memory",
-    functionDef: {
-      type: "function",
-      function: {
-        name: "write_memory",
-        description:
-          "Overwrite memory.md with new content. Use this to completely replace the memory store, e.g., after a major reorganisation or summarisation.",
-        parameters: {
-          type: "object",
-          properties: {
-            content: { type: "string", description: "The full Markdown content to write to memory.md." },
-          },
-          required: ["content"],
+    type: "function",
+    function: {
+      name: "write_memory",
+      description:
+        "Overwrite memory.md with new content. Use this to completely replace the memory store, e.g., after a major reorganisation or summarisation.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "The full Markdown content to write to memory.md." },
         },
+        required: ["content"],
       },
     },
   },
   {
-    name: "append_memory",
-    functionDef: {
-      type: "function",
-      function: {
-        name: "append_memory",
-        description:
-          "Append new information to the end of memory.md without erasing what is already there. Prefer this over write_memory when you only need to add a small piece of new information.",
-        parameters: {
-          type: "object",
-          properties: {
-            content: { type: "string", description: "The Markdown text to append to memory.md." },
-          },
-          required: ["content"],
+    type: "function",
+    function: {
+      name: "append_memory",
+      description:
+        "Append new information to the end of memory.md without erasing what is already there. Prefer this over write_memory when you only need to add a small piece of new information.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "The Markdown text to append to memory.md." },
         },
+        required: ["content"],
       },
     },
   },
   {
-    name: "clear_memory",
-    functionDef: {
-      type: "function",
-      function: {
-        name: "clear_memory",
-        description:
-          "Wipe memory.md completely and replace it with a minimal header. Use this when the stored context is no longer relevant and a fresh start is needed.",
-        parameters: { type: "object", properties: {}, required: [] },
-      },
+    type: "function",
+    function: {
+      name: "clear_memory",
+      description:
+        "Wipe memory.md completely and replace it with a minimal header. Use this when the stored context is no longer relevant and a fresh start is needed.",
+      parameters: { type: "object", properties: {}, required: [] },
     },
   },
 ];
@@ -255,6 +193,9 @@ async function toolWriteMemory(args: { content: string }): Promise<string> {
 /** Tool handler for appending memory. */
 async function toolAppendMemory(args: { content: string }): Promise<string> {
   const content = args?.content ?? "";
+  console.log("content | ", content);
+  console.log("args | ", args);
+  
   try {
     await initMemoryFile(CONFIG.memory_file);
     // Append newline separator and then the content
@@ -277,7 +218,7 @@ async function toolClearMemory(): Promise<string> {
 }
 
 /** Map tool names to their corresponding async handler functions. */
-const TOOL_DISPATCH = {
+const TOOL_DISPATCH: Record<string, (args: any) => Promise<string>> = {
   read_memory: toolReadMemory,
   write_memory: toolWriteMemory,
   append_memory: toolAppendMemory,
@@ -291,7 +232,7 @@ const TOOL_DISPATCH = {
 /** HTTP client instance configured with timeouts. */
 const axiosInstance = axios.create({
   baseURL: CONFIG.lm_studio_base_url,
-  timeout: CONFIG.http_timeout * 1000, // Axios uses milliseconds
+  timeout: CONFIG.http_timeout * 10000, // Axios uses milliseconds
 });
 
 /** Calls the LLM endpoint and returns parsed data. */
@@ -307,7 +248,7 @@ async function callLLM(messages: Message[]): Promise<any> {
   };
 
   try {
-    console.log("payload | ", payload);
+    // console.log("payload | ", payload);
     const response = await axiosInstance.post("/chat/completions", payload, {
       headers: { "Content-Type": "application/json" },
     });
@@ -324,19 +265,15 @@ async function callLLM(messages: Message[]): Promise<any> {
 }
 
 /** Executes all tool calls found in the model response and updates history. */
-async function processToolCalls(messages: Message[], toolCalls: FunctionCall[]): Promise<void> {
+async function processToolCalls(messages: Message[], toolCalls: ToolDefinition[]): Promise<void> {
   for (const tc of toolCalls) {
     const fnName = tc.function.name;
-    const tcId = tc.id;
+    // const tcId = tc.id;
 
     // 1. Parse arguments JSON string
-    let args: any = {};
-    try {
-      if (tc.function.arguments) {
-        args = JSON.parse(tc.function.arguments);
-      }
-    } catch (e) {
-      console.error(`Failed to parse tool arguments for ${fnName}:`, e);
+    let args: ToolFunctionParameters = { type: "object", properties: {}, required: [] };
+    if (tc.function.parameters) {
+      args = tc.function.parameters;
     }
 
     console.log(`${c_tool("  [tool] ")}${fnName}(\`${argsPreview(args)}\`)`);
@@ -359,7 +296,7 @@ async function processToolCalls(messages: Message[], toolCalls: FunctionCall[]):
     // 3. Feed result back into the conversation history
     messages.push({
       role: "tool",
-      tool_call_id: tcId,
+      // tool_call_id: tcId,
       content: result,
     });
   }
@@ -404,8 +341,8 @@ async function processInitialMemory(messages: Message[]): Promise<string | null>
     const initResp = await callLLM(messages);
 
     if (initResp.choices?.[0]?.message?.tool_calls) {
-      const toolCalls: FunctionCall[] = initResp.choices[0].message.tool_calls;
-      await processToolCalls(messages, toolCalls);
+      const toolCalls: ToolFunctionDefinition[] = initResp.choices[0].message.tool_calls;
+      await processToolCalls(messages, toolCalls.map(tc => ({ type: "function", function: tc })));
 
       // Second call to get the final answer after memory has been processed
       const followResp = await callLLM(messages);
@@ -461,18 +398,10 @@ async function runChat() {
   /**
    * The main loop handler function.
    */
-  const chatLoop = async () => {
-    // Prompt the user for input
-    process.stdout.write(`${c_user("You: ")}${c_reset()}\n`);
-
-    // Read a line, awaiting the input
-    return new Promise<string>((resolve) =>
-      readline.question("", (input: string) => {
-        readline.close();
-        resolve(input);
-      }),
-    );
-  };
+  const chatLoop = async (): Promise<string> =>
+    new Promise<string>((resolve) => {
+      readline.question(`${c_user("You: ")}${c_reset()}`, resolve);
+    });
 
   /**
    * Processes a user turn using the agentic tool-call loop.
@@ -500,11 +429,12 @@ async function runChat() {
     messages.push({ role: "user", content: userInput });
     let finalAnswer = "";
 
-    const rounds = 0;
+    let rounds = 0;
     let hasFinalAnswer = false;
 
     // Agentic Tool-call loop (The core logic)
     while (rounds < CONFIG.max_tool_rounds && !hasFinalAnswer) {
+      rounds++;
       try {
         console.log("\n[System] Calling LLM...");
         const resp = await callLLM(messages);
@@ -513,7 +443,7 @@ async function runChat() {
         if (!choice?.message) break;
 
         const msg = choice.message;
-        const toolCalls: FunctionCall[] = msg.tool_calls || [];
+        const toolCalls: ToolDefinition[] = msg.tool_calls || [];
 
         if (toolCalls.length > 0) {
           // Model wants to call tools — execute them and loop
@@ -558,7 +488,7 @@ async function runChat() {
     }
   }
 
-  readline.removeAllListeners(); // Cleanup resources
+  readline.close();
 }
 
 // =============================================================================
