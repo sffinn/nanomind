@@ -403,18 +403,17 @@ async function runChat() {
   // Remove the synthetic init message from history
   messages = messages.filter((m) => !(m.role === "user" && m.content?.startsWith("__INIT__")));
 
-  const readline = require("readline").createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
   /**
-   * The main loop handler function.
+   * Reads a line of input from the user.
+   *
+   * Uses Bun's built-in `prompt()` global instead of Node's `readline` because
+   * the readline shim in Bun does not echo keystrokes on the very first
+   * question() call, leaving the user typing blind for their first message.
    */
-  const chatLoop = async (): Promise<string> =>
-    new Promise<string>((resolve) => {
-      readline.question(`${c_user("You: ")}${c_reset()}`, resolve);
-    });
+  const chatLoop = async (): Promise<string> => {
+    const line = prompt(`${c_user("You:")}${c_reset()}`);
+    return line ?? "exit";
+  };
 
   /**
    * Processes a user turn using the agentic tool-call loop.
@@ -500,8 +499,6 @@ async function runChat() {
       break;
     }
   }
-
-  readline.close();
 }
 
 // =============================================================================
