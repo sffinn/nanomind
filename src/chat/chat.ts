@@ -24,6 +24,16 @@ type ToolDefinition = {
   function: ToolFunctionDefinition;
 };
 
+/** A tool invocation returned by the model (OpenAI-compatible). */
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
 /** Represents a message in the conversation history. */
 type MessageRole = "user" | "assistant" | "system" | "tool";
 
@@ -193,9 +203,6 @@ async function toolWriteMemory(args: { content: string }): Promise<string> {
 /** Tool handler for appending memory. */
 async function toolAppendMemory(args: { content: string }): Promise<string> {
   const content = args?.content ?? "";
-  console.log("content | ", content);
-  console.log("args | ", args);
-  
   try {
     await initMemoryFile(CONFIG.memory_file);
     // Append newline separator and then the content
@@ -264,26 +271,33 @@ async function callLLM(messages: Message[]): Promise<any> {
   }
 }
 
+/** Parses the JSON arguments string from a model tool call. */
+function parseToolCallArgs(raw: string | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Executes all tool calls found in the model response and updates history. */
-async function processToolCalls(messages: Message[], toolCalls: ToolDefinition[]): Promise<void> {
+async function processToolCalls(messages: Message[], toolCalls: ToolCall[]): Promise<void> {
   for (const tc of toolCalls) {
     const fnName = tc.function.name;
-    // const tcId = tc.id;
-
-    // 1. Parse arguments JSON string
-    let args: ToolFunctionParameters = { type: "object", properties: {}, required: [] };
-    if (tc.function.parameters) {
-      args = tc.function.parameters;
-    }
+    const tcId = tc.id;
+    const args = parseToolCallArgs(tc.function.arguments);
 
     console.log(`${c_tool("  [tool] ")}${fnName}(\`${argsPreview(args)}\`)`);
 
     let result: string;
     const handler = TOOL_DISPATCH[fnName];
     if (handler) {
-      // 2. Execute tool and handle potential errors
       try {
-        result = await handler(args); // Tool handlers are now async
+        result = await handler(args);
       } catch (e) {
         result = `ERROR: Runtime exception during tool execution: ${e instanceof Error ? e.message : "Unknown error"}`;
       }
@@ -293,10 +307,9 @@ async function processToolCalls(messages: Message[], toolCalls: ToolDefinition[]
 
     console.log(`${c_tool("  [tool] ")}→ ${c_info(truncate(result, 120))}`);
 
-    // 3. Feed result back into the conversation history
     messages.push({
       role: "tool",
-      // tool_call_id: tcId,
+      tool_call_id: tcId,
       content: result,
     });
   }
@@ -341,8 +354,8 @@ async function processInitialMemory(messages: Message[]): Promise<string | null>
     const initResp = await callLLM(messages);
 
     if (initResp.choices?.[0]?.message?.tool_calls) {
-      const toolCalls: ToolFunctionDefinition[] = initResp.choices[0].message.tool_calls;
-      await processToolCalls(messages, toolCalls.map(tc => ({ type: "function", function: tc })));
+      const toolCalls: ToolCall[] = initResp.choices[0].message.tool_calls;
+      await processToolCalls(messages, toolCalls);
 
       // Second call to get the final answer after memory has been processed
       const followResp = await callLLM(messages);
@@ -443,7 +456,7 @@ async function runChat() {
         if (!choice?.message) break;
 
         const msg = choice.message;
-        const toolCalls: ToolDefinition[] = msg.tool_calls || [];
+        const toolCalls: ToolCall[] = msg.tool_calls || [];
 
         if (toolCalls.length > 0) {
           // Model wants to call tools — execute them and loop
