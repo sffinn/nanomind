@@ -1,15 +1,31 @@
 # nanomind
 
-To install dependencies:
+A simple chat application that uses LM Studio to power a persistent memory system.
+
+## Usage
 
 ```bash
-bun install
+bun run src/chat/chat.ts
 ```
 
-To run:
+## Configuration
+
+The application is configured via environment variables.
 
 ```bash
-bun run index.ts
+LM_STUDIO_URL=http://localhost:1234/v1
+LM_STUDIO_MODEL=local-model
+MEMORY_FILE=memory.md
 ```
 
-This project was created using `bun init` in bun v1.1.0. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+## Memory
+
+The application uses a persistent memory file to store the conversation history.
+
+```bash
+cat memory.md
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.

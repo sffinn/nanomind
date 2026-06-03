@@ -6,6 +6,7 @@
 # Re-include the entries we want to track.
 !/.gitignore
 !/README.md
+!/LICENSE.md
 !/package.json
 !/tsconfig.json
 !/bun.lockb
