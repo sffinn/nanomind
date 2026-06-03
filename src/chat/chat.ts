@@ -218,16 +218,15 @@ async function runChat() {
   // Use a persistent array to hold the full history (state)
   let messages: Message[] = [{ role: "system", content: buildSystemPrompt() }];
 
-  // console.log(`\n${c_header("=".repeat(60))}`);
-  // console.log(`${c_header("  LLM Chat  ·  LM Studio  ·  Persistent Memory")}`);
-  // console.log(`${c_header("=".repeat(60))}`);
-  // console.log(`${c_info(`  Model      : ${CONFIG.model}`)}`);
-  // console.log(`${c_info(`  LM Studio  : ${CONFIG.lm_studio_base_url}`)}`);
-  // console.log(`${c_info(`  Memory file: ${CONFIG.memory_file}`)}`);
-  // console.log(`${c_header("=".repeat(60))}`);
-  // console.log(`${c_info("  Type 'exit' or 'quit' to end the session.")}`);
-  // console.log(`${c_info("  Type 'memory' to print the current memory.md.")}`);
-  // console.log(`${c_header("=".repeat(60))\n`);
+  console.log(`\n${c_header("=".repeat(60))}`);
+  console.log(`${c_header("  LLM Chat  ·  LM Studio  ·  Persistent Memory")}`);
+  console.log(`${c_info(`  Model      : ${CONFIG.model}`)}`);
+  console.log(`${c_info(`  LM Studio  : ${CONFIG.lm_studio_base_url}`)}`);
+  console.log(`${c_info(`  Memory file: ${CONFIG.memory_file}`)}`);
+  console.log(`${c_header("=".repeat(60))}`);
+  console.log(`${c_info("  Type 'exit' or 'quit' to end the session.")}`);
+  console.log(`${c_info("  Type 'memory' to print the current memory.md.")}`);
+  console.log(`${c_header("=".repeat(60))}\n`);
 
   // Prime the model: ask it to read memory before the first user turn
   messages.push({ role: "user", content: "__INIT__: Please read your memory now so you are ready." });
