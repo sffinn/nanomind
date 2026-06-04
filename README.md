@@ -5,7 +5,7 @@ A simple chat application that uses LM Studio to power a persistent memory syste
 ## Usage
 
 ```bash
-bun run src/chat/chat.ts
+bun run chat
 ```
 
 ## Configuration
