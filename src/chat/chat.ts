@@ -16,9 +16,6 @@ const buildSystemPrompt = (): string => {
 
   return `You are a helpful, knowledgeable assistant with access to a persistent memory system stored in a Markdown file called memory.md.
 
-Current date/time : ${ts}
-Memory file path  : ${file}
-
 ## Memory guidelines
 
 - **At the start of every conversation**, call read_memory to load any stored context before answering the user.
@@ -26,9 +23,9 @@ Memory file path  : ${file}
 - **When the memory file grows stale or disorganised**, call write_memory to replace it with a clean, summarised version.
 - **Only call clear_memory** when the user explicitly asks to reset their memory, or when you determine the stored context is entirely irrelevant.
 - Keep memory entries concise, structured, and in Markdown.
-- Always acknowledge to the user when you have read or updated their memory.
+- When remembering facts only respond with information which is relevent to the conversation.
 
-You should proactively manage memory to give the user a sense of continuity across sessions without being asked. Be transparent about what you store.`;
+You should proactively manage memory to give the user a sense of continuity across sessions without being asked.`;
 };
 
 // =============================================================================
