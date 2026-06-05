@@ -9,19 +9,19 @@ interface ToolFunctionParameters {
   type: string;
   properties: any;
   required: string[];
-};
+}
 
 /** Represents the structure of an LLM tool call request body. */
 interface ToolFunctionDefinition {
   name: string;
   description: string;
   parameters: ToolFunctionParameters;
-};
+}
 
 interface ToolDefinition {
   type: string;
   function: ToolFunctionDefinition;
-};
+}
 
 // =============================================================================
 // Tool Definitions (API Schema)
@@ -73,6 +73,14 @@ const TOOLS: ToolDefinition[] = [
       name: "clear_memory",
       description:
         "Wipe memory.md completely and replace it with a minimal header. Use this when the stored context is no longer relevant and a fresh start is needed.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ls",
+      description: "Walk the workspace directory and returns all files.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -142,6 +150,12 @@ async function toolClearMemory(): Promise<string> {
   const initialContent = `# Memory\n\n_Cleared and Re-initialised: ${ts}\n`;
   await fs.writeFile(CONFIG.memory_file, initialContent, "utf8");
   return "memory.md has been cleared.";
+}
+
+/** Tool handeler for listing directory contents */
+async function toolLs(): Promise<string> {
+  // ToDo: Implement
+  return "";
 }
 
 /** Map tool names to their corresponding async handler functions. */
