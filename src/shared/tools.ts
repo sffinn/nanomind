@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import * as path from "path";
 import { CONFIG } from "./config";
 
 // =============================================================================
@@ -152,10 +153,37 @@ async function toolClearMemory(): Promise<string> {
   return "memory.md has been cleared.";
 }
 
-/** Tool handeler for listing directory contents */
+/** Directories that are noisy/large and not useful to list. */
+const LS_IGNORED_DIRS = new Set([".git", "node_modules", ".venv", "dist", "build"]);
+
+/** Recursively collects relative file paths starting from `dir`. */
+async function walkDir(dir: string, root: string, out: string[]): Promise<void> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    const rel = path.relative(root, full).split(path.sep).join("/");
+    if (entry.isDirectory()) {
+      if (LS_IGNORED_DIRS.has(entry.name)) continue;
+      out.push(`${rel}/`);
+      await walkDir(full, root, out);
+    } else {
+      out.push(rel);
+    }
+  }
+}
+
+/** Tool handler for listing the current directory and all sub-directories. */
 async function toolLs(): Promise<string> {
-  // ToDo: Implement
-  return "";
+  try {
+    const root = process.cwd();
+    const results: string[] = [];
+    await walkDir(root, root, results);
+    results.sort();
+    return results.length > 0 ? results.join("\n") : "(directory is empty)";
+  } catch (error) {
+    console.error(`[Tool Error] Failed to list directory:`, error);
+    return "ERROR: Cannot list directory contents.";
+  }
 }
 
 /** Map tool names to their corresponding async handler functions. */
@@ -164,6 +192,7 @@ const TOOL_DISPATCH: Record<string, (args: any) => Promise<string>> = {
   write_memory: toolWriteMemory,
   append_memory: toolAppendMemory,
   clear_memory: toolClearMemory,
+  ls: toolLs,
 };
 
 export { TOOLS, TOOL_DISPATCH };
