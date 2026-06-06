@@ -4,15 +4,20 @@
   "type": "module",
   "scripts": {
     "chat": "bun run src/chat/chat.ts",
+    "web": "bun run src/web/server.ts",
     "test": "echo 'Running tests for all components...'"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "axios": "^1.16.1"
+    "axios": "^1.16.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

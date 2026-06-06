@@ -8,6 +8,18 @@ A simple chat application that uses LM Studio to power a persistent memory syste
 bun run chat
 ```
 
+## Web app
+
+A small React app served by Bun's built-in HTTP server. The client is bundled
+in-memory at startup, so there's no separate build step or output directory.
+
+```bash
+bun run web
+```
+
+Then open http://localhost:3000. Set `PORT` to use a different port. The client
+source lives in `src/web/client/` and the server in `src/web/server.ts`.
+
 ## Configuration
 
 The application is configured via environment variables.
