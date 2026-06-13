@@ -1,3 +1,4 @@
+import { mkdir } from "fs/promises";
 import * as path from "path";
 import { CONFIG } from "../shared/config";
 import { callLLM, processToolCalls } from "../shared/lm-client";
@@ -31,6 +32,13 @@ async function bundleClient(): Promise<string> {
 
   return await result.outputs[0]!.text();
 }
+
+/** Ensures the wiki directory exists, creating it on first startup if needed. */
+async function ensureWikiDir(): Promise<void> {
+  await mkdir(WIKI_DIR, { recursive: true });
+}
+
+await ensureWikiDir();
 
 let clientJs = await bundleClient();
 
