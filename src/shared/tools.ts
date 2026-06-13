@@ -175,7 +175,7 @@ async function walkDir(dir: string, root: string, out: string[]): Promise<void> 
 /** Tool handler for listing the current directory and all sub-directories. */
 async function toolLs(): Promise<string> {
   try {
-    const root = process.cwd();
+    const root = `${process.cwd()}/wiki`;
     const results: string[] = [];
     await walkDir(root, root, results);
     results.sort();

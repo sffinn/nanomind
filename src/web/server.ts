@@ -1,6 +1,7 @@
 import * as path from "path";
 import { CONFIG } from "../shared/config";
 import { callLLM, processToolCalls } from "../shared/lm-client";
+import { TOOL_DISPATCH } from "../shared/tools";
 import type { Message, ToolCall } from "../shared/types";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -95,6 +96,22 @@ async function handleChat(req: Request): Promise<Response> {
   }
 }
 
+/** Handles GET /api/files: returns the workspace file list. */
+async function handleFiles(): Promise<Response> {
+  try {
+    const raw = await TOOL_DISPATCH.ls!({});
+    const files = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("("));
+    return Response.json({ files });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error("[/api/files] error:", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
+
 const server = Bun.serve({
   port: PORT,
   async fetch(req) {
@@ -102,6 +119,10 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/chat" && req.method === "POST") {
       return handleChat(req);
+    }
+
+    if (url.pathname === "/api/files" && req.method === "GET") {
+      return handleFiles();
     }
 
     if (url.pathname === "/index.js") {

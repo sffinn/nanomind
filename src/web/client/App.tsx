@@ -49,9 +49,17 @@ export function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]!;
+
+  useEffect(() => {
+    fetch("/api/files")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data) => setFiles(Array.isArray(data.files) ? data.files : []))
+      .catch(() => setFiles([]));
+  }, []);
 
   useEffect(() => {
     try {
@@ -138,6 +146,23 @@ export function App() {
         <button className="new-chat" onClick={newChat}>
           + New chat
         </button>
+
+        <div className="files">
+          <div className="sidebar-label">Files</div>
+          <div className="file-list">
+            {files.length === 0 ? (
+              <div className="file-empty">No files</div>
+            ) : (
+              files.map((f) => (
+                <div key={f} className={`file-item${f.endsWith("/") ? " dir" : ""}`} title={f}>
+                  {f}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="sidebar-label">History</div>
         <div className="history">
           {conversations.map((c) => (
             <div
