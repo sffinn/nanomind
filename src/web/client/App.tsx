@@ -16,6 +16,9 @@ interface OpenFile {
   content: string;
   loading: boolean;
   error: string | null;
+  editing: boolean;
+  draft: string;
+  saving: boolean;
 }
 
 /** The chat tab is always present; file tabs are keyed by their path. */
@@ -119,7 +122,10 @@ export function App() {
     setActiveTab(filePath);
     if (openFiles.some((f) => f.path === filePath)) return; // already loaded
 
-    setOpenFiles((prev) => [...prev, { path: filePath, content: "", loading: true, error: null }]);
+    setOpenFiles((prev) => [
+      ...prev,
+      { path: filePath, content: "", loading: true, error: null, editing: false, draft: "", saving: false },
+    ]);
 
     try {
       const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
@@ -127,7 +133,9 @@ export function App() {
       if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
       setOpenFiles((prev) =>
         prev.map((f) =>
-          f.path === filePath ? { ...f, content: data.content ?? "", loading: false } : f,
+          f.path === filePath
+            ? { ...f, content: data.content ?? "", draft: data.content ?? "", loading: false }
+            : f,
         ),
       );
     } catch (e) {
@@ -142,6 +150,51 @@ export function App() {
     e.stopPropagation();
     setOpenFiles((prev) => prev.filter((f) => f.path !== filePath));
     setActiveTab((prev) => (prev === filePath ? CHAT_TAB : prev));
+  }
+
+  function startEdit(filePath: string) {
+    setOpenFiles((prev) =>
+      prev.map((f) => (f.path === filePath ? { ...f, editing: true, draft: f.content, error: null } : f)),
+    );
+  }
+
+  function cancelEdit(filePath: string) {
+    setOpenFiles((prev) =>
+      prev.map((f) => (f.path === filePath ? { ...f, editing: false, draft: f.content, error: null } : f)),
+    );
+  }
+
+  function updateDraft(filePath: string, value: string) {
+    setOpenFiles((prev) => prev.map((f) => (f.path === filePath ? { ...f, draft: value } : f)));
+  }
+
+  async function saveFile(filePath: string) {
+    const file = openFiles.find((f) => f.path === filePath);
+    if (!file || file.saving) return;
+
+    setOpenFiles((prev) =>
+      prev.map((f) => (f.path === filePath ? { ...f, saving: true, error: null } : f)),
+    );
+
+    try {
+      const res = await fetch("/api/file", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filePath, content: file.draft }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+      setOpenFiles((prev) =>
+        prev.map((f) =>
+          f.path === filePath ? { ...f, content: f.draft, editing: false, saving: false } : f,
+        ),
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not save file.";
+      setOpenFiles((prev) =>
+        prev.map((f) => (f.path === filePath ? { ...f, saving: false, error: message } : f)),
+      );
+    }
   }
 
   async function sendMessage() {
@@ -322,11 +375,42 @@ export function App() {
             if (!file) return null;
             return (
               <div className="file-view">
-                <div className="file-view-path">{file.path}</div>
+                <div className="file-view-bar">
+                  <span className="file-view-path">{file.path}</span>
+                  {!file.loading && !file.editing && (
+                    <button className="file-action" onClick={() => startEdit(file.path)}>
+                      Edit
+                    </button>
+                  )}
+                  {file.editing && (
+                    <div className="file-actions">
+                      <button
+                        className="file-action secondary"
+                        onClick={() => cancelEdit(file.path)}
+                        disabled={file.saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="file-action primary"
+                        onClick={() => saveFile(file.path)}
+                        disabled={file.saving}
+                      >
+                        {file.saving ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {file.error && <div className="file-view-status error-text">{file.error}</div>}
                 {file.loading ? (
                   <div className="file-view-status">Loading…</div>
-                ) : file.error ? (
-                  <div className="file-view-status error-text">{file.error}</div>
+                ) : file.editing ? (
+                  <textarea
+                    className="file-editor"
+                    value={file.draft}
+                    onChange={(e) => updateDraft(file.path, e.target.value)}
+                    spellCheck={false}
+                  />
                 ) : (
                   <pre className="file-view-content">{file.content}</pre>
                 )}

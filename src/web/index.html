@@ -249,12 +249,71 @@
         flex-direction: column;
         min-height: 0;
       }
+      .file-view-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem 0.5rem 1.25rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      }
       .file-view-path {
-        padding: 0.6rem 1.25rem;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 0.78rem;
         color: #94a3b8;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .file-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+      }
+      .file-action {
+        padding: 0.35rem 0.85rem;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: transparent;
+        color: #e2e8f0;
+        font-family: inherit;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+      }
+      .file-action:hover:not(:disabled) {
+        background: rgba(148, 163, 184, 0.12);
+        border-color: rgba(148, 163, 184, 0.4);
+      }
+      .file-action.primary {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        border-color: transparent;
+        color: #fff;
+      }
+      .file-action.primary:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+      .file-action:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .file-editor {
+        flex: 1;
+        margin: 0;
+        padding: 1.25rem;
+        border: none;
+        resize: none;
+        outline: none;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        tab-size: 2;
+        white-space: pre;
+        overflow: auto;
       }
       .file-view-content {
         flex: 1;

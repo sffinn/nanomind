@@ -97,6 +97,17 @@ async function handleChat(req: Request): Promise<Response> {
   }
 }
 
+/**
+ * Resolves a wiki-relative request path to an absolute path, guarding against
+ * traversal outside the wiki directory. Returns null if the path escapes.
+ */
+function resolveWikiPath(requested: string): string | null {
+  const resolved = path.resolve(WIKI_DIR, requested);
+  const rel = path.relative(WIKI_DIR, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return resolved;
+}
+
 /** Handles GET /api/file?path=...: returns the contents of a single file. */
 async function handleFile(url: URL): Promise<Response> {
   const requested = url.searchParams.get("path");
@@ -104,12 +115,9 @@ async function handleFile(url: URL): Promise<Response> {
     return Response.json({ error: "Missing 'path' query parameter." }, { status: 400 });
   }
 
-  const resolved = path.resolve(WIKI_DIR, requested);
-
-  // Prevent path traversal outside the workspace root.
-  const rel = path.relative(WIKI_DIR, resolved);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    return Response.json({ error: "Path is outside the workspace." }, { status: 403 });
+  const resolved = resolveWikiPath(requested);
+  if (!resolved) {
+    return Response.json({ error: "Path is outside the wiki directory." }, { status: 403 });
   }
 
   try {
@@ -122,6 +130,42 @@ async function handleFile(url: URL): Promise<Response> {
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     console.error("[/api/file] error:", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
+
+/** Handles PUT /api/file: writes new content to a wiki file. */
+async function handleSaveFile(req: Request): Promise<Response> {
+  let body: { path?: string; content?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const requested = body.path;
+  if (!requested || typeof requested !== "string") {
+    return Response.json({ error: "Missing 'path'." }, { status: 400 });
+  }
+  if (typeof body.content !== "string") {
+    return Response.json({ error: "Missing 'content'." }, { status: 400 });
+  }
+
+  const resolved = resolveWikiPath(requested);
+  if (!resolved) {
+    return Response.json({ error: "Path is outside the wiki directory." }, { status: 403 });
+  }
+
+  try {
+    const file = Bun.file(resolved);
+    if (!(await file.exists())) {
+      return Response.json({ error: "File not found." }, { status: 404 });
+    }
+    await Bun.write(resolved, body.content);
+    return Response.json({ path: requested, saved: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error("[/api/file PUT] error:", message);
     return Response.json({ error: message }, { status: 500 });
   }
 }
@@ -157,6 +201,10 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/file" && req.method === "GET") {
       return handleFile(url);
+    }
+
+    if (url.pathname === "/api/file" && req.method === "PUT") {
+      return handleSaveFile(req);
     }
 
     if (url.pathname === "/index.js") {
