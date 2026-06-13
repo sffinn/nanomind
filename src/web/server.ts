@@ -8,6 +8,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const WEB_DIR = path.dirname(Bun.fileURLToPath(import.meta.url));
 const CLIENT_ENTRY = path.join(WEB_DIR, "client", "index.tsx");
 const INDEX_HTML = path.join(WEB_DIR, "index.html");
+const WIKI_DIR = path.join(process.cwd(), "wiki");
 
 /**
  * Bundles the React client into a single browser-ready JS module.
@@ -96,6 +97,35 @@ async function handleChat(req: Request): Promise<Response> {
   }
 }
 
+/** Handles GET /api/file?path=...: returns the contents of a single file. */
+async function handleFile(url: URL): Promise<Response> {
+  const requested = url.searchParams.get("path");
+  if (!requested) {
+    return Response.json({ error: "Missing 'path' query parameter." }, { status: 400 });
+  }
+
+  const resolved = path.resolve(WIKI_DIR, requested);
+
+  // Prevent path traversal outside the workspace root.
+  const rel = path.relative(WIKI_DIR, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    return Response.json({ error: "Path is outside the workspace." }, { status: 403 });
+  }
+
+  try {
+    const file = Bun.file(resolved);
+    if (!(await file.exists())) {
+      return Response.json({ error: "File not found." }, { status: 404 });
+    }
+    const content = await file.text();
+    return Response.json({ path: requested, content });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error("[/api/file] error:", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
+
 /** Handles GET /api/files: returns the workspace file list. */
 async function handleFiles(): Promise<Response> {
   try {
@@ -123,6 +153,10 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/files" && req.method === "GET") {
       return handleFiles();
+    }
+
+    if (url.pathname === "/api/file" && req.method === "GET") {
+      return handleFile(url);
     }
 
     if (url.pathname === "/index.js") {

@@ -98,13 +98,18 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        cursor: default;
+        cursor: pointer;
       }
       .file-item:hover {
         background: rgba(148, 163, 184, 0.1);
       }
+      .file-item.active {
+        background: rgba(79, 70, 229, 0.25);
+        color: #fff;
+      }
       .file-item.dir {
         color: #818cf8;
+        cursor: default;
       }
       .file-empty {
         padding: 0.3rem 0.65rem;
@@ -186,6 +191,90 @@
       .chat-subtitle {
         color: #94a3b8;
         font-size: 0.8rem;
+      }
+      .tabs {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.4rem 0.75rem 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        overflow-x: auto;
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        max-width: 200px;
+        padding: 0.45rem 0.75rem;
+        border: none;
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        color: #94a3b8;
+        font-family: inherit;
+        font-size: 0.82rem;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+      .tab:hover {
+        background: rgba(148, 163, 184, 0.1);
+        color: #e2e8f0;
+      }
+      .tab.active {
+        background: rgba(79, 70, 229, 0.25);
+        color: #fff;
+      }
+      .tab-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tab-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.05rem;
+        height: 1.05rem;
+        border-radius: 50%;
+        font-size: 1rem;
+        line-height: 1;
+        color: #94a3b8;
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+      .tab-close:hover {
+        background: rgba(248, 113, 113, 0.2);
+        color: #fca5a5;
+      }
+      .file-view {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .file-view-path {
+        padding: 0.6rem 1.25rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.78rem;
+        color: #94a3b8;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      }
+      .file-view-content {
+        flex: 1;
+        margin: 0;
+        padding: 1.25rem;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        color: #e2e8f0;
+        white-space: pre;
+        tab-size: 2;
+      }
+      .file-view-status {
+        padding: 1.25rem;
+        color: #64748b;
+        font-size: 0.9rem;
+      }
+      .file-view-status.error-text {
+        color: #fca5a5;
       }
       .messages {
         flex: 1;

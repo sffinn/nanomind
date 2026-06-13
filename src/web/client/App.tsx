@@ -11,6 +11,22 @@ interface Conversation {
   messages: ChatMessage[];
 }
 
+interface OpenFile {
+  path: string;
+  content: string;
+  loading: boolean;
+  error: string | null;
+}
+
+/** The chat tab is always present; file tabs are keyed by their path. */
+const CHAT_TAB = "__chat__";
+
+/** Returns just the filename portion of a path for tab labels. */
+const baseName = (p: string): string => {
+  const parts = p.replace(/\/$/, "").split("/");
+  return parts[parts.length - 1] || p;
+};
+
 const STORAGE_KEY = "nanomind.conversations";
 
 const newId = () =>
@@ -50,6 +66,8 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<string[]>([]);
+  const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
+  const [activeTab, setActiveTab] = useState<string>(CHAT_TAB);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]!;
@@ -93,6 +111,37 @@ export function App() {
       if (id === activeId) setActiveId(next[0]!.id);
       return next;
     });
+  }
+
+  async function openFile(filePath: string) {
+    if (filePath.endsWith("/")) return; // directories aren't viewable
+
+    setActiveTab(filePath);
+    if (openFiles.some((f) => f.path === filePath)) return; // already loaded
+
+    setOpenFiles((prev) => [...prev, { path: filePath, content: "", loading: true, error: null }]);
+
+    try {
+      const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+      setOpenFiles((prev) =>
+        prev.map((f) =>
+          f.path === filePath ? { ...f, content: data.content ?? "", loading: false } : f,
+        ),
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not load file.";
+      setOpenFiles((prev) =>
+        prev.map((f) => (f.path === filePath ? { ...f, loading: false, error: message } : f)),
+      );
+    }
+  }
+
+  function closeFile(filePath: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setOpenFiles((prev) => prev.filter((f) => f.path !== filePath));
+    setActiveTab((prev) => (prev === filePath ? CHAT_TAB : prev));
   }
 
   async function sendMessage() {
@@ -153,11 +202,26 @@ export function App() {
             {files.length === 0 ? (
               <div className="file-empty">No files</div>
             ) : (
-              files.map((f) => (
-                <div key={f} className={`file-item${f.endsWith("/") ? " dir" : ""}`} title={f}>
-                  {f}
-                </div>
-              ))
+              files.map((f) => {
+                const isDir = f.endsWith("/");
+                const classes = [
+                  "file-item",
+                  isDir ? "dir" : "",
+                  !isDir && activeTab === f ? "active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <div
+                    key={f}
+                    className={classes}
+                    title={f}
+                    onClick={() => openFile(f)}
+                  >
+                    {f}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -190,41 +254,86 @@ export function App() {
           <span className="chat-subtitle">LLM chat · powered by LM Studio</span>
         </header>
 
-        <div className="messages" ref={scrollRef}>
-          {active.messages.length === 0 && !loading && (
-            <div className="empty">Ask me anything to get started.</div>
-          )}
-          {active.messages.map((m, i) => (
-            <div key={i} className={`msg msg-${m.role}`}>
-              <div className="bubble">{m.content}</div>
+        {openFiles.length > 0 && (
+          <div className="tabs">
+            <button
+              className={`tab${activeTab === CHAT_TAB ? " active" : ""}`}
+              onClick={() => setActiveTab(CHAT_TAB)}
+            >
+              Chat
+            </button>
+            {openFiles.map((f) => (
+              <button
+                key={f.path}
+                className={`tab${activeTab === f.path ? " active" : ""}`}
+                onClick={() => setActiveTab(f.path)}
+                title={f.path}
+              >
+                <span className="tab-label">{baseName(f.path)}</span>
+                <span className="tab-close" onClick={(e) => closeFile(f.path, e)}>
+                  ×
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === CHAT_TAB ? (
+          <>
+            <div className="messages" ref={scrollRef}>
+              {active.messages.length === 0 && !loading && (
+                <div className="empty">Ask me anything to get started.</div>
+              )}
+              {active.messages.map((m, i) => (
+                <div key={i} className={`msg msg-${m.role}`}>
+                  <div className="bubble">{m.content}</div>
+                </div>
+              ))}
+              {loading && (
+                <div className="msg msg-assistant">
+                  <div className="bubble typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-          {loading && (
-            <div className="msg msg-assistant">
-              <div className="bubble typing">
-                <span></span>
-                <span></span>
-                <span></span>
+
+            {error && <div className="error">{error}</div>}
+
+            <div className="composer">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+                rows={1}
+                disabled={loading}
+              />
+              <button onClick={sendMessage} disabled={loading || !input.trim()}>
+                Send
+              </button>
+            </div>
+          </>
+        ) : (
+          (() => {
+            const file = openFiles.find((f) => f.path === activeTab);
+            if (!file) return null;
+            return (
+              <div className="file-view">
+                <div className="file-view-path">{file.path}</div>
+                {file.loading ? (
+                  <div className="file-view-status">Loading…</div>
+                ) : file.error ? (
+                  <div className="file-view-status error-text">{file.error}</div>
+                ) : (
+                  <pre className="file-view-content">{file.content}</pre>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-
-        {error && <div className="error">{error}</div>}
-
-        <div className="composer">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-            rows={1}
-            disabled={loading}
-          />
-          <button onClick={sendMessage} disabled={loading || !input.trim()}>
-            Send
-          </button>
-        </div>
+            );
+          })()
+        )}
       </div>
     </div>
   );
