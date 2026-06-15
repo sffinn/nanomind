@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "chat": "bun run src/chat/chat.ts",
+    "agent": "bun run src/agent/agent.ts",
     "web": "bun run src/web/server.ts",
     "test": "echo 'Running tests for all components...'"
   },

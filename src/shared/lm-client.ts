@@ -38,12 +38,15 @@ const axiosInstance = axios.create({
   timeout: CONFIG.http_timeout * 10000, // Axios uses milliseconds
 });
 
-/** Calls the LLM endpoint and returns parsed data. */
-async function callLLM(messages: Message[]): Promise<any> {
+/** Calls the LLM endpoint and returns parsed data.
+ *
+ * `tools` defaults to the memory toolset so existing callers keep working, but
+ * callers (e.g. the coding agent) may pass their own tool definitions. */
+async function callLLM(messages: Message[], tools: any[] = TOOLS): Promise<any> {
   const payload = {
     model: CONFIG.model,
     messages: messages,
-    tools: TOOLS, // Send all available tools
+    tools: tools, // Send the provided toolset
     tool_choice: "auto",
     max_tokens: CONFIG.max_tokens,
     temperature: CONFIG.temperature,
@@ -80,8 +83,15 @@ function parseToolCallArgs(raw: string | undefined): Record<string, unknown> {
   }
 }
 
-/** Executes all tool calls found in the model response and updates history. */
-async function processToolCalls(messages: Message[], toolCalls: ToolCall[]): Promise<void> {
+/** Executes all tool calls found in the model response and updates history.
+ *
+ * `dispatch` defaults to the memory toolset handlers; callers may pass their
+ * own handler map (e.g. the coding agent's filesystem/shell tools). */
+async function processToolCalls(
+  messages: Message[],
+  toolCalls: ToolCall[],
+  dispatch: Record<string, (args: any) => Promise<string>> = TOOL_DISPATCH,
+): Promise<void> {
   for (const tc of toolCalls) {
     const fnName = tc.function.name;
     const tcId = tc.id;
@@ -90,7 +100,7 @@ async function processToolCalls(messages: Message[], toolCalls: ToolCall[]): Pro
     console.log(`${c_tool("  [tool] ")}${fnName}(\`${argsPreview(args)}\`)`);
 
     let result: string;
-    const handler = TOOL_DISPATCH[fnName];
+    const handler = dispatch[fnName];
     if (handler) {
       try {
         result = await handler(args);
